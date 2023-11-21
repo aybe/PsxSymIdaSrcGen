@@ -98,19 +98,28 @@ public static partial class Converter
     {
         var directory = Directory.CreateDirectory(targetDirectory);
 
-        foreach (var (key, value) in sourceFiles)
+        var headers = sourceFiles
+            .Select(s => $@"#include ""{Path.ChangeExtension(s.Key, ".H").Replace(Path.VolumeSeparatorChar.ToString(), string.Empty)}""")
+            .ToList();
+
+        foreach (var (path, text) in sourceFiles)
         {
-            var path = key.Replace(Path.VolumeSeparatorChar.ToString(), string.Empty);
+            var sourcePath = Path.Combine(directory.FullName, path.Replace(Path.VolumeSeparatorChar.ToString(), string.Empty));
+            var headerPath = Path.ChangeExtension(sourcePath, ".H");
 
-            path = Path.Combine(directory.FullName, path);
+            Directory.CreateDirectory(directory.FullName);
 
-            Directory.CreateDirectory(Path.GetDirectoryName(path) ?? throw new InvalidOperationException());
+            using var sourceWriter = new StreamWriter(File.Create(sourcePath));
 
-            File.WriteAllLines(path, value);
+            headers.ForEach(sourceWriter.WriteLine);
 
-            path = Path.ChangeExtension(path, ".H");
+            sourceWriter.WriteLine();
 
-            File.WriteAllText(path, null);
+            text.ForEach(sourceWriter.WriteLine);
+
+            using var headerWriter = new StreamWriter(File.Create(headerPath));
+
+            headerWriter.WriteLine(); // TODO add declarations
         }
     }
 
