@@ -107,6 +107,10 @@ public static partial class Converter
             Directory.CreateDirectory(Path.GetDirectoryName(path) ?? throw new InvalidOperationException());
 
             File.WriteAllLines(path, value);
+
+            path = Path.ChangeExtension(path, ".H");
+
+            File.WriteAllText(path, null);
         }
     }
 
