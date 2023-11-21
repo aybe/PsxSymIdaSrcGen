@@ -1,10 +1,13 @@
+// ReSharper disable StringLiteralTypo
+
 namespace PsxSymIdaSrcGen.Tests;
 
 [TestClass]
 public class UnitTest1
 {
     [TestMethod]
-    public void TestMethod1()
+    public void TestMethod1(string sourceFile, string targetDirectory, string entryPointFile)
     {
+        Converter.Process(sourceFile, targetDirectory, entryPointFile);
     }
 }

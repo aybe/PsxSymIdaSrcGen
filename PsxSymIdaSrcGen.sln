@@ -5,6 +5,8 @@ VisualStudioVersion = 17.8.34309.116
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PsxSymIdaSrcGen.Tests", "PsxSymIdaSrcGen.Tests\PsxSymIdaSrcGen.Tests.csproj", "{6314376D-BE58-4130-904B-2119D0DACA1A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PsxSymIdaSrcGen", "PsxSymIdaSrcGen\PsxSymIdaSrcGen.csproj", "{A76BBD06-7421-4585-8467-DB0456B578EB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{6314376D-BE58-4130-904B-2119D0DACA1A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6314376D-BE58-4130-904B-2119D0DACA1A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6314376D-BE58-4130-904B-2119D0DACA1A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A76BBD06-7421-4585-8467-DB0456B578EB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A76BBD06-7421-4585-8467-DB0456B578EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A76BBD06-7421-4585-8467-DB0456B578EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A76BBD06-7421-4585-8467-DB0456B578EB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
