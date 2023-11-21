@@ -2,9 +2,21 @@ using System.Text.RegularExpressions;
 
 namespace PsxSymIdaSrcGen;
 
-public static partial class Converter
+public sealed partial class Converter
 {
-    public static void Process(string sourceFile, string targetDirectory, string entryPointFile)
+    private Converter()
+    {
+    }
+
+    public required string Entry { get; init; }
+
+    public required Dictionary<string, List<string>> Files { get; init; }
+
+    public required List<string> Lines { get; init; }
+
+    public required List<List<string>> Lists { get; init; }
+
+    public static Converter Create(string sourceFile, string entryPointFile)
     {
         var lines = File.ReadAllLines(sourceFile).ToList();
 
@@ -14,8 +26,17 @@ public static partial class Converter
 
         var files = GetFiles(lists, entry);
 
-        WriteOutput(files, targetDirectory);
+        var converter = new Converter
+        {
+            Entry = entry,
+            Files = files,
+            Lines = lines,
+            Lists = lists
+        };
+
+        return converter;
     }
+
 
     private static List<List<string>> GetLists(List<string> lines)
     {
@@ -94,7 +115,7 @@ public static partial class Converter
         return dictionary;
     }
 
-    private static void WriteOutput(Dictionary<string, List<string>> sourceFiles, string targetDirectory)
+    public static void WriteOutput(Dictionary<string, List<string>> sourceFiles, string targetDirectory)
     {
         var directory = Directory.CreateDirectory(targetDirectory);
 

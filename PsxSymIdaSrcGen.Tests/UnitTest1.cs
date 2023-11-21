@@ -8,6 +8,8 @@ public class UnitTest1
     [TestMethod]
     public void TestMethod1(string sourceFile, string targetDirectory, string entryPointFile)
     {
-        Converter.Process(sourceFile, targetDirectory, entryPointFile);
+        var converter = Converter.Create(sourceFile, entryPointFile);
+
+        Converter.WriteOutput(converter.Files, targetDirectory);
     }
 }
