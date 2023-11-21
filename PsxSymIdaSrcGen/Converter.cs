@@ -1,13 +1,11 @@
 using System.Text.RegularExpressions;
 
+// ReSharper disable StringLiteralTypo
+
 namespace PsxSymIdaSrcGen;
 
 public sealed partial class Converter
 {
-    private Converter()
-    {
-    }
-
     public required string Entry { get; init; }
 
     public required Dictionary<string, List<string>> Files { get; init; }
@@ -114,46 +112,96 @@ public sealed partial class Converter
         return dictionary;
     }
 
-    public static void WriteOutput(Dictionary<string, List<string>> sourceFiles, string targetDirectory)
+    public static void WriteOutput(Converter converter, string targetDirectory)
     {
         var directory = Directory.CreateDirectory(targetDirectory);
 
-        var headers = sourceFiles
+        var files = converter.Files;
+
+        var lines = converter.Lines;
+
+        var line1 = lines.FindIndex(0, s => s.StartsWith("// Function declarations"));
+        var line2 = lines.FindIndex(0, s => s.StartsWith("// Data declarations"));
+        var line3 = lines.FindIndex(0, s => s.StartsWith("//----- (")); // function #1
+
+        var slice1 = lines[line1..line2];
+        var slice2 = lines[line2..line3];
+        var slice3 = lines[line3..];
+
+        var functions = GetMatches(slice1, RegexFunctionDeclaration()).ToArray();
+        var variables = GetMatches(slice2, RegexVariableDeclaration()).ToArray();
+
+        var headers = files
             .Select(s => $@"#include ""{Path.ChangeExtension(s.Key, ".H").Replace(Path.VolumeSeparatorChar.ToString(), string.Empty)}""")
             .ToList();
 
-        foreach (var (path, text) in sourceFiles)
+        foreach (var (path, text) in files)
         {
             var sourcePath = Path.Combine(directory.FullName, path.Replace(Path.VolumeSeparatorChar.ToString(), string.Empty));
             var headerPath = Path.ChangeExtension(sourcePath, ".H");
 
             Directory.CreateDirectory(directory.FullName);
 
-            using var sourceWriter = new StreamWriter(File.Create(sourcePath));
+            using (var header = new StringWriter())
+            {
+                header.WriteLine("#pragma once");
+                header.WriteLine();
 
-            headers.ForEach(sourceWriter.WriteLine);
+                if (path == converter.Entry)
+                {
+                    header.WriteLine("#include \"defs.h\"");
+                    header.WriteLine("#include \"types.h\"");
+                    header.WriteLine();
 
-            sourceWriter.WriteLine();
+                    header.WriteLine("#pragma region Variables");
+                    header.WriteLine();
 
-            text.ForEach(sourceWriter.WriteLine);
+                    var regex = RegexVariableDeclaration();
 
-            using var headerWriter = new StreamWriter(File.Create(headerPath));
+                    foreach (var line in slice2)
+                    {
+                        var match = regex.Match(line);
 
-            headerWriter.WriteLine(); // TODO add declarations
+                        if (match.Success == false)
+                        {
+                            continue;
+                        }
+
+                        var value = match.Groups[1].Value;
+
+                        header.WriteLine($"extern {value};");
+                    }
+
+                    header.WriteLine();
+                    header.WriteLine("#pragma endregion");
+                }
+
+                header.WriteLine("#pragma region Functions");
+                header.WriteLine();
+
+                foreach (var line in text.Where(s => RegexFunctionImplementation().IsMatch(s)))
+                {
+                    header.WriteLine($"{line};"); // TODO BUG is probably here, missing declarations
+                }
+
+                header.WriteLine();
+                header.WriteLine("#pragma endregion");
+
+                File.WriteAllText(headerPath, header.ToString());
+            }
+
+            using (var source = new StringWriter())
+            {
+                headers.ForEach(source.WriteLine);
+
+                source.WriteLine();
+
+                text.ForEach(source.WriteLine);
+
+                File.WriteAllText(sourcePath, source.ToString());
+            }
         }
     }
-
-    [GeneratedRegex(@"^//-{5}\s\([A-Z0-9]{8}\)\s-{56}$", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline)]
-    private static partial Regex RegexFunctionAddressComment();
-
-    [GeneratedRegex(@"^//\s\[PSX-MND-SYM\]\s(.*)$", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline)]
-    private static partial Regex RegexFunctionFileComment();
-
-    [GeneratedRegex(@"(?:[\w\*]+\s)*(\*?\w+)(?:\(.*\);)", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
-    private static partial Regex RegexFunctionDeclaration();
-
-    [GeneratedRegex(@"^(.{2,}?)(?=\s*[=;])", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
-    private static partial Regex RegexVariableDeclaration();
 
     public static void Test(Converter converter)
     {
@@ -181,7 +229,7 @@ public sealed partial class Converter
         Console.WriteLine(slice3.Count);
 
         Console.WriteLine();
-        
+
         foreach (var match in functions)
         {
             Console.WriteLine(match.Groups[1].Value);
@@ -199,4 +247,23 @@ public sealed partial class Converter
     {
         return list.Select(s => regex.Match(s)).Where(s => s.Success);
     }
+
+    #region Regex
+
+    [GeneratedRegex(@"^//-{5}\s\([A-Z0-9]{8}\)\s-{56}$", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline)]
+    private static partial Regex RegexFunctionAddressComment();
+
+    [GeneratedRegex(@"^//\s\[PSX-MND-SYM\]\s(.*)$", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline)]
+    private static partial Regex RegexFunctionFileComment();
+
+    [GeneratedRegex(@"(?:[\w\*]+\s)*(\*?\w+)(?:\(.*\);)", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex RegexFunctionDeclaration();
+
+    [GeneratedRegex(@"^\S.*\(.*\)$", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex RegexFunctionImplementation();
+
+    [GeneratedRegex(@"^(.{2,}?)(?=\s*[=;])", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex RegexVariableDeclaration();
+
+    #endregion
 }

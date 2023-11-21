@@ -12,7 +12,7 @@ public class UnitTest1
     {
         var converter = Converter.Create(sourceFile, entryPointFile);
 
-        Converter.WriteOutput(converter.Files, targetDirectory);
+        Converter.WriteOutput(converter, targetDirectory);
     }
 
     [TestMethod]
