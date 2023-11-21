@@ -37,7 +37,6 @@ public sealed partial class Converter
         return converter;
     }
 
-
     private static List<List<string>> GetLists(List<string> lines)
     {
         var ranges = new List<Range>();
@@ -149,4 +148,55 @@ public sealed partial class Converter
 
     [GeneratedRegex(@"^//\s\[PSX-MND-SYM\]\s(.*)$", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline)]
     private static partial Regex RegexFunctionFileComment();
+
+    [GeneratedRegex(@"(?:[\w\*]+\s)*(\*?\w+)(?:\(.*\);)", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex RegexFunctionDeclaration();
+
+    [GeneratedRegex(@"^(.{2,}?)(?=\s*[=;])", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex RegexVariableDeclaration();
+
+    public static void Test(Converter converter)
+    {
+        var lines = converter.Lines;
+
+        var line1 = lines.FindIndex(0, s => s.StartsWith("// Function declarations"));
+        var line2 = lines.FindIndex(0, s => s.StartsWith("// Data declarations"));
+        var line3 = lines.FindIndex(0, s => s.StartsWith("//----- (")); // function #1
+
+        var slice1 = lines[line1..line2];
+        var slice2 = lines[line2..line3];
+        var slice3 = lines[line3..];
+
+        var functions = GetMatches(slice1, RegexFunctionDeclaration()).ToArray();
+        var variables = GetMatches(slice2, RegexVariableDeclaration()).ToArray();
+
+        Console.WriteLine(line1);
+        Console.WriteLine(line2);
+        Console.WriteLine(line3);
+
+        Console.WriteLine();
+
+        Console.WriteLine(slice1.Count);
+        Console.WriteLine(slice2.Count);
+        Console.WriteLine(slice3.Count);
+
+        Console.WriteLine();
+        
+        foreach (var match in functions)
+        {
+            Console.WriteLine(match.Groups[1].Value);
+        }
+
+        Console.WriteLine();
+
+        foreach (var match in variables)
+        {
+            Console.WriteLine(match.Groups[1].Value);
+        }
+    }
+
+    private static IEnumerable<Match> GetMatches(IEnumerable<string> list, Regex regex)
+    {
+        return list.Select(s => regex.Match(s)).Where(s => s.Success);
+    }
 }
