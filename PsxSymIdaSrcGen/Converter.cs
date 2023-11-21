@@ -52,12 +52,7 @@ public static partial class Converter
 
         foreach (var chunk in chunks)
         {
-            var input = chunk.ElementAtOrDefault(1);
-
-            if (input == null)
-            {
-                continue;
-            }
+            var input = chunk[1];
 
             var match = RegexFunctionFileComment().Match(input);
 
@@ -66,16 +61,7 @@ public static partial class Converter
                 continue;
             }
 
-            var path = match.Groups[1].Value;
-
-            var name = Path.GetFileName((string?)path);
-
-            if (string.Equals(entry, name, StringComparison.OrdinalIgnoreCase) == false)
-            {
-                continue;
-            }
-
-            entry = path;
+            entry = match.Groups[1].Value;
 
             break;
         }
