@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 
+// ReSharper disable IdentifierTypo
 // ReSharper disable StringLiteralTypo
 
 namespace PsxSymIdaSrcGen;
@@ -10,10 +12,12 @@ public sealed partial class Converter
 
     public required Dictionary<string, List<string>> Files { get; init; }
 
+    public required Dictionary<string, List<string>> Funcs { get; init; }
+
     public required List<string> Lines { get; init; }
 
     public required List<List<string>> Lists { get; init; }
-
+    
     public static Converter Create(string sourceFile, string entryPointFile)
     {
         var lines = File.ReadAllLines(sourceFile).ToList();
@@ -24,10 +28,51 @@ public sealed partial class Converter
 
         var files = GetFiles(lists, entry);
 
+        var line1 = lines.FindIndex(0, s => s.StartsWith("// Function declarations"));
+        var line2 = lines.FindIndex(0, s => s.StartsWith("// Data declarations"));
+        var line3 = lines.FindIndex(0, s => s.StartsWith("//----- (")); // function #1
+
+        var list1 = lines[line1..line2];
+        var list2 = lines[line2..line3];
+        var list3 = lines[line3..];
+
+        var funcs = new Dictionary<string, List<string>>();
+
+        foreach (var list in lists.Skip(1))
+        {
+            var input1 = list[0];
+            var input2 = list[1];
+            var input3 = list[2];
+
+            var match1 = RegexFunctionAddressComment().Match(input1);
+
+            var match2 = Regex.Match(input2, @"(?<=^//\s\[PSX-MND-SYM\]\s)[\w\:\.\\]+(?=$)", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline);
+
+            if (match2.Success is false)
+            {
+                continue; // function without file info
+            }
+
+            var match3 = Regex.Match(input3, @"\w+(?=\()", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline);
+
+            Debug.Assert(match1.Success, input1);
+            Debug.Assert(match2.Success, input2);
+            Debug.Assert(match3.Success, input3);
+
+            Console.WriteLine(match2.Value + " | " + match3.Value);
+            if (funcs.ContainsKey(match2.Value) == false)
+            {
+                funcs.Add(match2.Value, new List<string>());
+            }
+
+            funcs[match2.Value].Add(match3.Value);
+        }
+
         var converter = new Converter
         {
             Entry = entry,
             Files = files,
+            Funcs = funcs,
             Lines = lines,
             Lists = lists
         };
@@ -147,7 +192,7 @@ public sealed partial class Converter
                 header.WriteLine("#pragma once");
                 header.WriteLine();
 
-                if (path == converter.Entry)
+                if (path == converter.Entry) // OK
                 {
                     header.WriteLine("#include \"defs.h\"");
                     header.WriteLine("#include \"types.h\"");
@@ -176,8 +221,15 @@ public sealed partial class Converter
                     header.WriteLine("#pragma endregion");
                 }
 
+                header.WriteLine();
+
                 header.WriteLine("#pragma region Functions");
                 header.WriteLine();
+
+                if (text.Any(s => s.Contains("move_displacement_set")))
+                {
+                    //throw new NotImplementedException();
+                }
 
                 foreach (var line in text.Where(s => RegexFunctionImplementation().IsMatch(s)))
                 {
@@ -203,6 +255,7 @@ public sealed partial class Converter
         }
     }
 
+    [Obsolete]
     public static void Test(Converter converter)
     {
         var lines = converter.Lines;
@@ -250,7 +303,7 @@ public sealed partial class Converter
 
     #region Regex
 
-    [GeneratedRegex(@"^//-{5}\s\([A-Z0-9]{8}\)\s-{56}$", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline)]
+    [GeneratedRegex(@"^/{2}-{5}\s\([A-Z0-9]{8}\)\s-{56}$", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline)]
     private static partial Regex RegexFunctionAddressComment();
 
     [GeneratedRegex(@"^//\s\[PSX-MND-SYM\]\s(.*)$", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline)]
