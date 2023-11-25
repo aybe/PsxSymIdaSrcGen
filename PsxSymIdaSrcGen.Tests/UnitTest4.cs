@@ -1,4 +1,7 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Globalization;
+using System.Text.RegularExpressions;
+
+// ReSharper disable NotAccessedPositionalProperty.Global
 
 // ReSharper disable StringLiteralTypo
 
@@ -17,10 +20,18 @@ public class UnitTest4
         var lineIndex = 0;
 
         var regex1 = new Regex(@"^([a-f0-9]{6}):\s\$([a-f0-9]{8})\s(\d{2})");
-        var regex2 = new Regex(@"Set\sSLD\sto\sline\s(\d+)\sof\sfile\s(.*)$");
-        var regex3 = new Regex(@"Inc\sSLD\slinenum\sby\sbyte\s(\d+)\s\(to\s(\d+)\)$");
-        var regex4 = new Regex(@"Inc\sSLD\slinenum\s\(to\s(\d+)\)$");
-        var regex5 = new Regex(@"Set\sSLD\slinenum\sto\s(\d+)$");
+
+        var symbols = new List<Symbol>();
+
+        var parsers = new List<SymbolParser>
+        {
+            new SymbolSetSldToLineOfLineParser(),
+            new SymbolIncSldLineNumByByteParser(),
+            new SymbolIncSldLineNumToParser(),
+            new SymbolSetSldLineNumToParser(),
+            new SymbolDef1Parser(),
+            new SymbolDef2Parser()
+        };
 
         while (true)
         {
@@ -39,50 +50,229 @@ public class UnitTest4
             }
 
             var match1 = regex1.Match(line);
+
             if (match1.Success is false)
             {
                 continue;
             }
 
-            var elementOffset = match1.Groups[1].Value;
-            var elementAddress = match1.Groups[2].Value;
-            var elementType = match1.Groups[3].Value;
+            var offset = int.Parse(match1.Groups[1].Value, NumberStyles.HexNumber);
 
-            var match2 = regex2.Match(line);
-            if (match2.Success)
+            var header = new SymbolHeader(
+                int.Parse(match1.Groups[2].Value, NumberStyles.HexNumber),
+                int.Parse(match1.Groups[3].Value));
+
+            var result = default(Symbol);
+
+            foreach (var parser in parsers)
             {
-                var setSldLine = match2.Groups[1].Value;
-                var setSldFile = match2.Groups[2].Value;
-                Console.WriteLine($"Set SLD to line {setSldLine} of file {setSldFile}");
-                continue;
+                if (parser.TryParse(line, out result))
+                {
+                    break;
+                }
             }
 
-            var match3 = regex3.Match(line);
-            if (match3.Success)
+            if (result == null)
             {
-                var incSldValue1 = match3.Groups[1].Value;
-                var incSldValue2 = match3.Groups[2].Value;
-                Console.WriteLine($"Inc SLD linenum by byte {incSldValue1} (to {incSldValue2})");
-                continue;
+                throw new NotImplementedException($"{lineIndex}: {line}");
             }
 
-            var match4 = regex4.Match(line);
-            if (match4.Success)
-            {
-                var incSldValue1 = match4.Groups[1].Value;
-                Console.WriteLine($"Inc SLD linenum (to {incSldValue1})");
-                continue;
-            }
-
-            var match5 = regex5.Match(line);
-            if (match5.Success)
-            {
-                var incSldValue1 = match5.Groups[1].Value;
-                Console.WriteLine($"Set SLD linenum to {incSldValue1}");
-                continue;
-            }
-
-            throw new NotImplementedException($"{lineIndex}: {line}");
+            symbols.Add(result);
         }
     }
+}
+
+public abstract record Symbol;
+
+public sealed record SymbolHeader(int Address, int Type)
+{
+    public override string ToString()
+    {
+        return $"${Address:x8} {Type:D2}";
+    }
+}
+
+public abstract class SymbolParser
+{
+    public abstract bool TryParse(string input, out Symbol result);
+}
+
+public sealed record SymbolSetSldToLineOfLine(int Line, string File) : Symbol
+{
+    public override string ToString()
+    {
+        return $"{File}, {Line}";
+    }
+}
+
+public sealed partial class SymbolSetSldToLineOfLineParser : SymbolParser
+{
+    public override bool TryParse(string input, out Symbol result)
+    {
+        result = default!;
+
+        var match = MyRegex().Match(input);
+
+        if (match.Success is false)
+        {
+            return false;
+        }
+
+        var line = int.Parse(match.Groups[1].Value);
+
+        var file = match.Groups[2].Value;
+
+        result = new SymbolSetSldToLineOfLine(line, file);
+
+        return true;
+    }
+
+    [GeneratedRegex(@"Set\sSLD\sto\sline\s(\d+)\sof\sfile\s(.*)$")]
+    private static partial Regex MyRegex();
+}
+
+public sealed record SymbolIncSldLineNumByByte(int Value1, int Value2) : Symbol
+{
+    public override string ToString()
+    {
+        return $"{nameof(Value1)}: {Value1}, {nameof(Value2)}: {Value2}";
+    }
+}
+
+public sealed partial class SymbolIncSldLineNumByByteParser : SymbolParser
+{
+    public override bool TryParse(string input, out Symbol result)
+    {
+        result = default!;
+
+        var match = MyRegex().Match(input);
+
+        if (match.Success is false)
+        {
+            return false;
+        }
+
+        var value1 = int.Parse(match.Groups[1].Value);
+
+        var value2 = int.Parse(match.Groups[2].Value);
+
+        result = new SymbolIncSldLineNumByByte(value1, value2);
+
+        return true;
+    }
+
+    [GeneratedRegex(@"Inc\sSLD\slinenum\sby\sbyte\s(\d+)\s\(to\s(\d+)\)$")]
+    private static partial Regex MyRegex();
+}
+
+public sealed record SymbolIncSldLineNumTo(int Line) : Symbol;
+
+public sealed partial class SymbolIncSldLineNumToParser : SymbolParser
+{
+    public override bool TryParse(string input, out Symbol result)
+    {
+        result = default!;
+
+        var match = MyRegex().Match(input);
+
+        if (match.Success is false)
+        {
+            return false;
+        }
+
+        var line = int.Parse(match.Groups[1].Value);
+
+        result = new SymbolIncSldLineNumTo(line);
+
+        return true;
+    }
+
+    [GeneratedRegex(@"Inc\sSLD\slinenum\s\(to\s(\d+)\)$")]
+    private static partial Regex MyRegex();
+}
+
+public sealed record SymbolSetSldLineNumTo(int Line) : Symbol;
+
+public sealed partial class SymbolSetSldLineNumToParser : SymbolParser
+{
+    public override bool TryParse(string input, out Symbol result)
+    {
+        result = default!;
+
+        var match = MyRegex().Match(input);
+
+        if (match.Success is false)
+        {
+            return false;
+        }
+
+        var line = int.Parse(match.Groups[1].Value);
+
+        result = new SymbolSetSldLineNumTo(line);
+
+        return true;
+    }
+
+    [GeneratedRegex(@"Set\sSLD\slinenum\sto\s(\d+)$")]
+    private static partial Regex MyRegex();
+}
+
+public sealed record SymbolDef1(string Kind, string Type, int Size, string Name) : Symbol;
+
+public sealed partial class SymbolDef1Parser : SymbolParser
+{
+    public override bool TryParse(string input, out Symbol result)
+    {
+        result = default!;
+
+        var match = MyRegex().Match(input);
+
+        if (match.Success is false)
+        {
+            return false;
+        }
+
+        var kind = match.Groups[1].Value;
+        var type = match.Groups[2].Value;
+        var size = match.Groups[3].Value;
+        var name = match.Groups[4].Value;
+
+        result = new SymbolDef1(kind, type, int.Parse(size), name);
+
+        return true;
+    }
+
+    [GeneratedRegex(@"Def\sclass\s(\w+)\stype\s(\w+(?:\s\w+)*)\ssize\s(\d+)\sname\s(\S+)$")]
+    private static partial Regex MyRegex();
+}
+
+public sealed record SymbolDef2(string Kind, string Type, int Size, int[] Dims, string Tag, string Name) : Symbol;
+
+public sealed partial class SymbolDef2Parser : SymbolParser
+{
+    public override bool TryParse(string input, out Symbol result)
+    {
+        result = default!;
+
+        var match = MyRegex().Match(input);
+
+        if (match.Success is false)
+        {
+            return false;
+        }
+
+        var kind = match.Groups[1].Value;
+        var type = match.Groups[2].Value;
+        var size = int.Parse(match.Groups[3].Value);
+        var dims = match.Groups[4].Captures.Select(s => int.Parse(s.Value)).ToArray();
+        var tag = match.Groups[5].Value;
+        var name = match.Groups[6].Value;
+
+        result = new SymbolDef2(kind, type, size, dims, tag, name);
+
+        return true;
+    }
+
+    [GeneratedRegex(@"Def2\sclass\s(\w+)\stype\s(\w+(?:\s\w+)*)\ssize\s(\d+)\sdims\s(?:\s?(\d+))+\stag\s(\S*)\sname\s(\S+)$")]
+    private static partial Regex MyRegex();
 }
