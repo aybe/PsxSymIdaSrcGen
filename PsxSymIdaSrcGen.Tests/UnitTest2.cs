@@ -16,21 +16,13 @@ public partial class UnitTest2
 
         // declarations
 
-        var declarations = new Dictionary<string, string>();
-
-        foreach (var line in info.TextDeclarations)
-        {
-            if (RegexDeclarationName().Match(line) is { Success: true } match)
-            {
-                declarations.Add(match.Groups[1].Value, line);
-            }
-        }
+        var declarations = info.GetDeclarations();
 
         Console.WriteLine($"Declarations count: {declarations.Count}");
 
         // variables
 
-        var variables = info.TextVariables.ToArray();
+        var variables = info.GetVariables();
 
         Console.WriteLine($"Variables block length: {variables.Length}");
 
@@ -137,8 +129,6 @@ public partial class UnitTest2
     [GeneratedRegex(@"^/{2}\s\[PSX-MND-SYM\]\sFunction\sfile\s=\s(\S+)$", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     private static partial Regex RegexFunctionFile();
 
-    [GeneratedRegex(@"^(?![\s/]+).*?(\w+)\(.*\);", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
-    private static partial Regex RegexDeclarationName();
 
     [GeneratedRegex(@"^(?!\s+)(?:\w+\s)+\(?(?:__fastcall\s)?\**(\w+)", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     private static partial Regex RegexVariableName();
@@ -172,9 +162,9 @@ public sealed partial class Source
             Text.AsSpan(new Range(LineFirstImplementation, LineEndOfFile)).ToArray();
     }
 
-    public int LineFirstDeclaration { get; }
+    private int LineFirstDeclaration { get; }
 
-    public int LineFirstVariable { get; }
+    private int LineFirstVariable { get; }
 
     public int LineFirstImplementation { get; }
 
@@ -182,11 +172,11 @@ public sealed partial class Source
 
     public string[] Text { get; }
 
-    public string[] TextDeclarations { get; }
+    private string[] TextDeclarations { get; }
 
     public string[] TextImplementations { get; }
 
-    public string[] TextVariables { get; }
+    private string[] TextVariables { get; }
 
     [GeneratedRegex(@"^/{2}-{5}\s\(([A-Z0-9]{8})\)\s-{56}$", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     public static partial Regex RegexFunctionAddress();
@@ -199,6 +189,31 @@ public sealed partial class Source
 
     [GeneratedRegex(@"^/{2}\snfuncs=\d+", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     private static partial Regex RegexEndOfFile();
+
+    [GeneratedRegex(@"^(?![\s/]+).*?(\w+)\(.*\);", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex RegexDeclarationName();
+
+    public Dictionary<string, string> GetDeclarations()
+    {
+        var declarations = new Dictionary<string, string>();
+
+        foreach (var line in TextDeclarations)
+        {
+            if (RegexDeclarationName().Match(line) is { Success: true } match)
+            {
+                declarations.Add(match.Groups[1].Value, line);
+            }
+        }
+
+        return declarations;
+    }
+
+    public string[] GetVariables()
+    {
+        var variables = TextVariables.ToArray();
+
+        return variables;
+    }
 }
 
 public sealed class SourceFunction(string file, string name, string[] text)
