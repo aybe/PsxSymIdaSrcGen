@@ -14,24 +14,11 @@ public partial class UnitTest2
 
         var source = File.ReadAllLines(path);
 
-        const RegexOptions options = RegexOptions.Compiled |
-                                     RegexOptions.CultureInvariant |
-                                     RegexOptions.Singleline;
-        var regex3 = RegexFunctionAddress(); // implementation address
-
-#pragma warning disable SYSLIB1045 // Convert to 'GeneratedRegexAttribute'.
-        var regex1 = new Regex(@"^//\sFunction\sdeclarations$", options);
-        var regex2 = new Regex(@"^//\sData\sdeclarations$", options);
-        var regex4 = new Regex(@"^(?![\s/]+).*?(\w+)\(.*\);", options); // declaration name
-        var regex5 = new Regex(@"^(?!\s+)(?:\w+\s)+\(?(?:__fastcall\s)?\**(\w+)", options); // variable name
-        var regex6 = new Regex(@"^/{2}\snfuncs=\d+", options); // EOF
-#pragma warning restore SYSLIB1045 // Convert to 'GeneratedRegexAttribute'.
-
-        var index1 = Array.FindIndex(source, regex1.IsMatch);
-        var index2 = Array.FindIndex(source, regex2.IsMatch);
-        var index3 = Array.FindIndex(source, regex3.IsMatch);
+        var index1 = Array.FindIndex(source, RegexFunctionDeclarations().IsMatch);
+        var index2 = Array.FindIndex(source, RegexDataDeclarations().IsMatch);
+        var index3 = Array.FindIndex(source, RegexFunctionAddress().IsMatch);
         var index4 = source.Length;
-        var index5 = Array.FindIndex(source, regex6.IsMatch);
+        var index5 = Array.FindIndex(source, RegexEndOfFile().IsMatch);
 
         var range1 = source.AsSpan(new Range(index1, index2));
         var range2 = source.AsSpan(new Range(index2, index3));
@@ -43,7 +30,7 @@ public partial class UnitTest2
 
         foreach (var line in range1)
         {
-            if (regex4.Match(line) is { Success: true } match)
+            if (RegexDeclarationName().Match(line) is { Success: true } match)
             {
                 declarations.Add(match.Groups[1].Value, line);
             }
@@ -64,7 +51,7 @@ public partial class UnitTest2
 
         foreach (var line in range3)
         {
-            if (regex3.Match(line) is { Success: true })
+            if (RegexFunctionAddress().Match(line) is { Success: true })
             {
                 lines.Add(start);
             }
@@ -162,15 +149,35 @@ public partial class UnitTest2
 
     [GeneratedRegex(@"^/{2}\s\[PSX-MND-SYM\]\sFunction\sfile\s=\s(\S+)$")]
     private static partial Regex RegexFunctionFile();
+
+    [GeneratedRegex(@"^//\sFunction\sdeclarations$", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex RegexFunctionDeclarations();
+
+    [GeneratedRegex(@"^//\sData\sdeclarations$", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex RegexDataDeclarations();
+
+    [GeneratedRegex(@"^(?![\s/]+).*?(\w+)\(.*\);", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex RegexDeclarationName();
+
+    [GeneratedRegex(@"^(?!\s+)(?:\w+\s)+\(?(?:__fastcall\s)?\**(\w+)", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex RegexVariableName();
+
+    [GeneratedRegex(@"^/{2}\snfuncs=\d+", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex RegexEndOfFile();
 }
 
-public sealed class SourceFunction(string file, string name, string[] Text)
+public class Source
+{
+    public Dictionary<string, string> Declarations { get; set; } = null!;
+}
+
+public sealed class SourceFunction(string file, string name, string[] text)
 {
     public string File { get; set; } = file;
 
     public string Name { get; set; } = name;
 
-    public string[] Text { get; set; } = Text;
+    public string[] Text { get; set; } = text;
 
     public override string ToString()
     {
