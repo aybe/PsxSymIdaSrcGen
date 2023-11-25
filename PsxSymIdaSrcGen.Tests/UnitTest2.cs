@@ -12,23 +12,13 @@ public partial class UnitTest2
     {
         const string path = @"C:\Temp\SLES_001.15.c";
 
-        var source = File.ReadAllLines(path);
-
-        var index1 = Array.FindIndex(source, RegexFunctionDeclarations().IsMatch);
-        var index2 = Array.FindIndex(source, RegexDataDeclarations().IsMatch);
-        var index3 = Array.FindIndex(source, RegexFunctionAddress().IsMatch);
-        var index4 = source.Length;
-        var index5 = Array.FindIndex(source, RegexEndOfFile().IsMatch);
-
-        var range1 = source.AsSpan(new Range(index1, index2));
-        var range2 = source.AsSpan(new Range(index2, index3));
-        var range3 = source.AsSpan(new Range(index3, index4));
+        var info = new Source(path);
 
         // declarations
 
         var declarations = new Dictionary<string, string>();
 
-        foreach (var line in range1)
+        foreach (var line in info.TextDeclarations)
         {
             if (RegexDeclarationName().Match(line) is { Success: true } match)
             {
@@ -40,18 +30,18 @@ public partial class UnitTest2
 
         // variables
 
-        var variables = range2.ToArray();
+        var variables = info.TextVariables.ToArray();
 
         Console.WriteLine($"Variables block length: {variables.Length}");
 
         // implementations
 
-        var start = index3;
+        var start = info.LineFirstImplementation;
         var lines = new List<int>();
 
-        foreach (var line in range3)
+        foreach (var line in info.TextImplementations)
         {
-            if (RegexFunctionAddress().Match(line) is { Success: true })
+            if (Source.RegexFunctionAddress().Match(line) is { Success: true })
             {
                 lines.Add(start);
             }
@@ -59,7 +49,7 @@ public partial class UnitTest2
             start++;
         }
 
-        lines.Add(index5);
+        lines.Add(info.LineEndOfFile);
 
         var ranges = new List<Range>();
 
@@ -68,7 +58,7 @@ public partial class UnitTest2
             ranges.Add(new Range(lines[i], lines[i + 1]));
         }
 
-        var functions = ranges.Select(s => source.AsSpan(s).ToArray()).ToList();
+        var functions = ranges.Select(s => info.Text.AsSpan(s).ToArray()).ToList();
 
         var sourceFunctions = new List<SourceFunction>(functions.Count);
 
@@ -80,7 +70,7 @@ public partial class UnitTest2
 
             functionFile ??= string.Empty;
 
-            functionName ??= GetMatchGroupValue(functionText, 1, RegexFunctionAddress());
+            functionName ??= GetMatchGroupValue(functionText, 1, Source.RegexFunctionAddress());
 
             if (functionName == null)
             {
@@ -141,14 +131,65 @@ public partial class UnitTest2
         return null;
     }
 
-    [GeneratedRegex(@"^/{2}-{5}\s\(([A-Z0-9]{8})\)\s-{56}$", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
-    private static partial Regex RegexFunctionAddress();
-
-    [GeneratedRegex(@"^/{2}\s\[PSX-MND-SYM\]\sFunction\sname\s=\s(\w+)$")]
+    [GeneratedRegex(@"^/{2}\s\[PSX-MND-SYM\]\sFunction\sname\s=\s(\w+)$", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     private static partial Regex RegexFunctionName();
 
-    [GeneratedRegex(@"^/{2}\s\[PSX-MND-SYM\]\sFunction\sfile\s=\s(\S+)$")]
+    [GeneratedRegex(@"^/{2}\s\[PSX-MND-SYM\]\sFunction\sfile\s=\s(\S+)$", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     private static partial Regex RegexFunctionFile();
+
+    [GeneratedRegex(@"^(?![\s/]+).*?(\w+)\(.*\);", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex RegexDeclarationName();
+
+    [GeneratedRegex(@"^(?!\s+)(?:\w+\s)+\(?(?:__fastcall\s)?\**(\w+)", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex RegexVariableName();
+}
+
+public sealed partial class Source
+{
+    public Source(string path)
+    {
+        Text = File.ReadAllLines(path);
+
+        LineFirstDeclaration =
+            Array.FindIndex(Text, RegexFunctionDeclarations().IsMatch);
+
+        LineFirstVariable =
+            Array.FindIndex(Text, RegexDataDeclarations().IsMatch);
+
+        LineFirstImplementation =
+            Array.FindIndex(Text, RegexFunctionAddress().IsMatch);
+
+        LineEndOfFile =
+            Array.FindIndex(Text, RegexEndOfFile().IsMatch);
+
+        TextDeclarations =
+            Text.AsSpan(new Range(LineFirstDeclaration, LineFirstVariable)).ToArray();
+
+        TextVariables =
+            Text.AsSpan(new Range(LineFirstVariable, LineFirstImplementation)).ToArray();
+
+        TextImplementations =
+            Text.AsSpan(new Range(LineFirstImplementation, LineEndOfFile)).ToArray();
+    }
+
+    public int LineFirstDeclaration { get; }
+
+    public int LineFirstVariable { get; }
+
+    public int LineFirstImplementation { get; }
+
+    public int LineEndOfFile { get; }
+
+    public string[] Text { get; }
+
+    public string[] TextDeclarations { get; }
+
+    public string[] TextImplementations { get; }
+
+    public string[] TextVariables { get; }
+
+    [GeneratedRegex(@"^/{2}-{5}\s\(([A-Z0-9]{8})\)\s-{56}$", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    public static partial Regex RegexFunctionAddress();
 
     [GeneratedRegex(@"^//\sFunction\sdeclarations$", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     private static partial Regex RegexFunctionDeclarations();
@@ -156,19 +197,8 @@ public partial class UnitTest2
     [GeneratedRegex(@"^//\sData\sdeclarations$", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     private static partial Regex RegexDataDeclarations();
 
-    [GeneratedRegex(@"^(?![\s/]+).*?(\w+)\(.*\);", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
-    private static partial Regex RegexDeclarationName();
-
-    [GeneratedRegex(@"^(?!\s+)(?:\w+\s)+\(?(?:__fastcall\s)?\**(\w+)", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
-    private static partial Regex RegexVariableName();
-
     [GeneratedRegex(@"^/{2}\snfuncs=\d+", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     private static partial Regex RegexEndOfFile();
-}
-
-public class Source
-{
-    public Dictionary<string, string> Declarations { get; set; } = null!;
 }
 
 public sealed class SourceFunction(string file, string name, string[] text)
