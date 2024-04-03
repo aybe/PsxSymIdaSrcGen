@@ -2,6 +2,14 @@
 
 public static class ArrayExtensions // TODO move to library
 {
+    public static void ForEach<T>(this IEnumerable<T> array, Action<T> action)
+    {
+        foreach (var item in array)
+        {
+            action(item);
+        }
+    }
+
     public static IEnumerable<T[]> Split<T>(this T[] array, IEnumerable<int> indices)
     {
         var split = indices as int[] ?? indices.ToArray();

@@ -72,7 +72,7 @@ public sealed partial class Source
     [GeneratedRegex(@"^(?!\s+)(?:\w+\s)+\(?(?:__fastcall\s)?\**(\w+)", RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     private static partial Regex RegexVariableName();
 
-    private static string? GetMatchGroupValue(IEnumerable<string> lines, int group, Regex regex)
+    public static string? GetMatchGroupValue(IEnumerable<string> lines, int group, Regex regex)
     {
         foreach (var input in lines)
         {
